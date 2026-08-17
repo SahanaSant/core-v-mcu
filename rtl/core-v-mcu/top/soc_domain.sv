@@ -11,6 +11,7 @@
 
 `include "pulp_soc_defines.svh"
 `include "pulp_peripheral_defines.svh"
+`include "soc_mem_map.svh"
 
 module soc_domain
   import dm::*;
@@ -237,6 +238,7 @@ module soc_domain
   APB_BUS s_apb_periph_bus ();
 
   XBAR_TCDM_BUS s_mem_rom_bus ();
+  XBAR_TCDM_BUS s_mem_display_bus ();
 
   XBAR_TCDM_BUS s_mem_l2_bus[NB_L2_BANKS-1:0] ();
   XBAR_TCDM_BUS s_mem_l2_pri_bus[NB_L2_BANKS_PRI-1:0] ();
@@ -282,6 +284,27 @@ module soc_domain
       .init_ni    (1'b1),
       .mem_slave  (s_mem_rom_bus),
       .test_mode_i(dft_test_mode_i)
+  );
+
+  // The TCDM-visible display memory is integrated before the board-specific
+  // scanout controller. Its scanout inputs are tied off until that controller
+  // is added beside this instance.
+  display_tcdm_slave #(
+      .BASE_ADDR(`SOC_MEM_MAP_DISPLAY_START_ADDR)
+  ) display_tcdm_slave_i (
+      .clk_i                  (s_soc_clk),
+      .rst_ni                 (s_soc_rstn),
+      .tcdm_slave             (s_mem_display_bus),
+      .display_pixel_req_i    (1'b0),
+      .display_pixel_addr_i   ('0),
+      .display_pixel_o        (),
+      .display_palette_req_i  (1'b0),
+      .display_palette_index_i('0),
+      .display_color_o        (),
+      .display_enable_o       (),
+      .frame_start_o          (),
+      .display_busy_i         (1'b0),
+      .display_done_i         (1'b0)
   );
 
   //********************************************************
@@ -417,7 +440,8 @@ module soc_domain
       .tcdm_efpga_apbt1     (s_lint_efpga_apbt1_bus),
       .l2_interleaved_slaves(s_mem_l2_bus),
       .l2_private_slaves    (s_mem_l2_pri_bus),
-      .boot_rom_slave       (s_mem_rom_bus)
+      .boot_rom_slave       (s_mem_rom_bus),
+      .display_slave        (s_mem_display_bus)
   );
   /* Debug Subsystem */
 

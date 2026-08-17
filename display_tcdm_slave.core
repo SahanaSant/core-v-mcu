@@ -1,0 +1,61 @@
+CAPI=2:
+
+name: schulich-on-a-chip:tb:display_tcdm_slave:0
+description: Standalone TCDM display slave regression
+
+filesets:
+  rtl:
+    files:
+      - rtl/core-v-mcu/soc/display_framebuffer.sv
+      - rtl/core-v-mcu/soc/display_palette.sv
+      - rtl/core-v-mcu/soc/display_tcdm_slave_core.sv
+    file_type: systemVerilogSource
+  basic_tb:
+    files:
+      - tests/display_tcdm_slave_tb.sv
+    file_type: systemVerilogSource
+  image_tb:
+    files:
+      - tests/display_framebuffer_image_tb.sv
+    file_type: systemVerilogSource
+  spi_rtl:
+    files:
+      - rtl/core-v-mcu/soc/display_spi_streamer.sv
+    file_type: systemVerilogSource
+  spi_tb:
+    files:
+      - tests/display_spi_streamer_tb.sv
+    file_type: systemVerilogSource
+
+targets:
+  sim:
+    default_tool: icarus
+    filesets:
+      - rtl
+      - basic_tb
+    toplevel: display_tcdm_slave_tb
+    tools:
+      icarus:
+        iverilog_options:
+          - -g2012
+  image:
+    default_tool: icarus
+    filesets:
+      - rtl
+      - image_tb
+    toplevel: display_framebuffer_image_tb
+    tools:
+      icarus:
+        iverilog_options:
+          - -g2012
+  spi:
+    default_tool: icarus
+    filesets:
+      - rtl
+      - spi_rtl
+      - spi_tb
+    toplevel: display_spi_streamer_tb
+    tools:
+      icarus:
+        iverilog_options:
+          - -g2012

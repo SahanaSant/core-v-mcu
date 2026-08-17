@@ -1,0 +1,2 @@
+# Scripts executed by Linux and WSL must retain Unix line endings.
+*.sh text eol=lf

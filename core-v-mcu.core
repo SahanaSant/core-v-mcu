@@ -49,6 +49,11 @@ filesets:
     - rtl/core-v-mcu/soc/tcdm_demux.sv
     - rtl/core-v-mcu/soc/boot_rom.sv
     - rtl/core-v-mcu/soc/l2_ram_multi_bank.sv
+    - rtl/core-v-mcu/soc/display_framebuffer.sv
+    - rtl/core-v-mcu/soc/display_palette.sv
+    - rtl/core-v-mcu/soc/display_tcdm_slave_core.sv
+    - rtl/core-v-mcu/soc/display_tcdm_slave.sv
+    - rtl/core-v-mcu/soc/display_spi_streamer.sv
     - rtl/core-v-mcu/soc/lint_jtag_wrap.sv
     - rtl/core-v-mcu/soc/periph_bus_wrap.sv
 #    - rtl/core-v-mcu/soc/soc_clk_rst_gen.sv
@@ -284,6 +289,7 @@ targets:
         verilator_options:
         - -Wno-fatal
         - -O3
+        - --timing
         - --trace
         - --CFLAGS -fPIC -DVL_TIME_CONTEXT
 
