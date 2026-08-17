@@ -9,6 +9,7 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $buildRoot = Join-Path $repoRoot 'build\display-tests'
 $iverilog = Join-Path $IcarusBin 'iverilog.exe'
 $vvp = Join-Path $IcarusBin 'vvp.exe'
+$includeDirectory = Join-Path $repoRoot 'rtl\includes'
 
 if (-not (Test-Path -LiteralPath $iverilog)) {
     throw "Icarus compiler not found at $iverilog"
@@ -35,7 +36,7 @@ function Invoke-DisplaySimulation {
     $output = Join-Path $runDirectory "$Name.vvp"
 
     Write-Host "Compiling $Name..."
-    & $iverilog -g2012 -s $Top -o $output @Sources
+    & $iverilog -g2012 "-I$includeDirectory" -s $Top -o $output @Sources
     if ($LASTEXITCODE -ne 0) {
         throw "$Name compilation failed with exit code $LASTEXITCODE"
     }
@@ -108,11 +109,32 @@ $pngPath = Join-Path $buildRoot 'image\display_framebuffer_test.png'
 Convert-PpmToPng -PpmPath $ppmPath -PngPath $pngPath
 
 Invoke-DisplaySimulation `
+    -Name 'st7789-init' `
+    -Top 'display_st7789_init_tb' `
+    -Sources @(
+        (Join-Path $repoRoot 'rtl\core-v-mcu\soc\display_spi_byte_tx.sv'),
+        (Join-Path $repoRoot 'rtl\core-v-mcu\soc\display_st7789_init.sv'),
+        (Join-Path $repoRoot 'tests\display_st7789_init_tb.sv')
+    )
+
+Invoke-DisplaySimulation `
     -Name 'spi' `
     -Top 'display_spi_streamer_tb' `
     -Sources ($commonSources + @(
+        (Join-Path $repoRoot 'rtl\core-v-mcu\soc\display_spi_byte_tx.sv'),
         (Join-Path $repoRoot 'rtl\core-v-mcu\soc\display_spi_streamer.sv'),
         (Join-Path $repoRoot 'tests\display_spi_streamer_tb.sv')
+    ))
+
+Invoke-DisplaySimulation `
+    -Name 'subsystem' `
+    -Top 'display_subsystem_tb' `
+    -Sources ($commonSources + @(
+        (Join-Path $repoRoot 'rtl\core-v-mcu\soc\display_spi_byte_tx.sv'),
+        (Join-Path $repoRoot 'rtl\core-v-mcu\soc\display_st7789_init.sv'),
+        (Join-Path $repoRoot 'rtl\core-v-mcu\soc\display_spi_streamer.sv'),
+        (Join-Path $repoRoot 'rtl\core-v-mcu\soc\display_subsystem_core.sv'),
+        (Join-Path $repoRoot 'tests\display_subsystem_tb.sv')
     ))
 
 Write-Host ''

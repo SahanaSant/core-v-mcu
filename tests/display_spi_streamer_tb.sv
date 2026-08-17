@@ -40,11 +40,15 @@ module display_spi_streamer_tb;
   logic spi_mosi;
 
   logic [15:0] received_shift;
+  logic [7:0] received_byte;
+  logic received_dc;
   logic [31:0] packed_pixels;
   logic [31:0] read_data;
   logic read_error;
   integer pixel_number;
   integer received_bits;
+  integer received_bytes;
+  integer received_words;
   integer received_pixels;
   integer timeout;
 
@@ -189,18 +193,41 @@ module display_spi_streamer_tb;
 
   always @(posedge spi_sclk) begin
     if (!spi_cs_n) begin
-      received_shift = {received_shift[14:0], spi_mosi};
-      if (received_bits == 15) begin
-        if (received_shift !== expected_color(received_pixels)) begin
-          $fatal(1, "SPI pixel %0d: expected %04x, received %04x",
-                 received_pixels, expected_color(received_pixels),
-                 received_shift);
-        end
-        received_pixels = received_pixels + 1;
-        received_bits   = 0;
-        received_shift  = '0;
+      if (received_bits == 0) begin
+        received_dc   = spi_mosi;
+        received_byte = '0;
+        received_bits = 1;
       end else begin
-        received_bits = received_bits + 1;
+        received_byte = {received_byte[6:0], spi_mosi};
+        if (received_bits == 8) begin
+          if (received_words == 0) begin
+            if (received_dc !== 1'b0 || received_byte !== 8'h2C) begin
+              $fatal(1, "Expected 3-wire command 02c before pixel data");
+            end
+          end else begin
+            if (received_dc !== 1'b1) begin
+              $fatal(1, "Pixel byte was not prefixed with the 3-wire data bit");
+            end
+            if (!received_bytes[0]) begin
+              received_shift[15:8] = received_byte;
+            end else begin
+              received_shift[7:0] = received_byte;
+            end
+            if (received_bytes[0]) begin
+            if (received_shift !== expected_color(received_pixels)) begin
+              $fatal(1, "SPI pixel %0d: expected %04x, received %04x",
+                     received_pixels, expected_color(received_pixels), received_shift);
+            end
+            received_pixels = received_pixels + 1;
+            received_shift  = '0;
+            end
+            received_bytes = received_bytes + 1;
+          end
+          received_words = received_words + 1;
+          received_bits  = 0;
+        end else begin
+          received_bits = received_bits + 1;
+        end
       end
     end
   end
@@ -208,7 +235,11 @@ module display_spi_streamer_tb;
   initial begin
     rst_n           = 1'b0;
     received_shift  = '0;
+    received_byte   = '0;
+    received_dc     = 1'b0;
     received_bits   = 0;
+    received_bytes  = 0;
+    received_words  = 0;
     received_pixels = 0;
     tcdm_idle();
 

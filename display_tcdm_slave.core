@@ -20,11 +20,25 @@ filesets:
     file_type: systemVerilogSource
   spi_rtl:
     files:
+      - rtl/core-v-mcu/soc/display_spi_byte_tx.sv
+      - rtl/core-v-mcu/soc/display_st7789_init.sv
       - rtl/core-v-mcu/soc/display_spi_streamer.sv
     file_type: systemVerilogSource
   spi_tb:
     files:
       - tests/display_spi_streamer_tb.sv
+    file_type: systemVerilogSource
+  st7789_init_tb:
+    files:
+      - tests/display_st7789_init_tb.sv
+    file_type: systemVerilogSource
+  subsystem_rtl:
+    files:
+      - rtl/core-v-mcu/soc/display_subsystem_core.sv
+    file_type: systemVerilogSource
+  subsystem_tb:
+    files:
+      - tests/display_subsystem_tb.sv
     file_type: systemVerilogSource
 
 targets:
@@ -55,6 +69,28 @@ targets:
       - spi_rtl
       - spi_tb
     toplevel: display_spi_streamer_tb
+    tools:
+      icarus:
+        iverilog_options:
+          - -g2012
+  st7789-init:
+    default_tool: icarus
+    filesets:
+      - spi_rtl
+      - st7789_init_tb
+    toplevel: display_st7789_init_tb
+    tools:
+      icarus:
+        iverilog_options:
+          - -g2012
+  subsystem:
+    default_tool: icarus
+    filesets:
+      - rtl
+      - spi_rtl
+      - subsystem_rtl
+      - subsystem_tb
+    toplevel: display_subsystem_tb
     tools:
       icarus:
         iverilog_options:

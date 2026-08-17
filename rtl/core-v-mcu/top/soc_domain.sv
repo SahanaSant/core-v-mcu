@@ -88,7 +88,16 @@ module soc_domain
     input  logic        jtag_trst_ni,
     input  logic        jtag_tms_i,
     input  logic        jtag_tdi_i,
-    output logic        jtag_tdo_o
+    output logic        jtag_tdo_o,
+
+    // Dedicated display SPI outputs. The board wrapper assigns these signals
+    // to physical package pins once the final FPGA board is selected.
+    output logic display_spi_cs_no,
+    output logic display_spi_sclk_o,
+    output logic display_spi_mosi_o,
+    output logic display_reset_no,
+    output logic display_im0_o,
+    output logic display_im2_o
     //    output logic [NB_CORES-1:0] cluster_dbg_irq_valid_o
     ///////////////////////////////////////////////////
 );
@@ -286,25 +295,19 @@ module soc_domain
       .test_mode_i(dft_test_mode_i)
   );
 
-  // The TCDM-visible display memory is integrated before the board-specific
-  // scanout controller. Its scanout inputs are tied off until that controller
-  // is added beside this instance.
-  display_tcdm_slave #(
+  // TCDM-visible control, palette and framebuffer memory plus RGB565 scanout.
+  display_subsystem #(
       .BASE_ADDR(`SOC_MEM_MAP_DISPLAY_START_ADDR)
-  ) display_tcdm_slave_i (
-      .clk_i                  (s_soc_clk),
-      .rst_ni                 (s_soc_rstn),
-      .tcdm_slave             (s_mem_display_bus),
-      .display_pixel_req_i    (1'b0),
-      .display_pixel_addr_i   ('0),
-      .display_pixel_o        (),
-      .display_palette_req_i  (1'b0),
-      .display_palette_index_i('0),
-      .display_color_o        (),
-      .display_enable_o       (),
-      .frame_start_o          (),
-      .display_busy_i         (1'b0),
-      .display_done_i         (1'b0)
+  ) display_subsystem_i (
+      .clk_i       (s_soc_clk),
+      .rst_ni      (s_soc_rstn),
+      .tcdm_slave  (s_mem_display_bus),
+      .spi_cs_no   (display_spi_cs_no),
+      .spi_sclk_o  (display_spi_sclk_o),
+      .spi_mosi_o  (display_spi_mosi_o),
+      .display_reset_no(display_reset_no),
+      .display_im0_o   (display_im0_o),
+      .display_im2_o   (display_im2_o)
   );
 
   //********************************************************

@@ -53,7 +53,11 @@ filesets:
     - rtl/core-v-mcu/soc/display_palette.sv
     - rtl/core-v-mcu/soc/display_tcdm_slave_core.sv
     - rtl/core-v-mcu/soc/display_tcdm_slave.sv
+    - rtl/core-v-mcu/soc/display_spi_byte_tx.sv
+    - rtl/core-v-mcu/soc/display_st7789_init.sv
     - rtl/core-v-mcu/soc/display_spi_streamer.sv
+    - rtl/core-v-mcu/soc/display_subsystem_core.sv
+    - rtl/core-v-mcu/soc/display_subsystem.sv
     - rtl/core-v-mcu/soc/lint_jtag_wrap.sv
     - rtl/core-v-mcu/soc/periph_bus_wrap.sv
 #    - rtl/core-v-mcu/soc/soc_clk_rst_gen.sv

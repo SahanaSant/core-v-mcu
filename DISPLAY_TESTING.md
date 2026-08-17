@@ -12,8 +12,13 @@ cd "C:\Users\user\Projects\SystemVerilog\core-v-mcu copy"
 powershell -ExecutionPolicy Bypass -File .\tests\run_display_tests.ps1
 ```
 
-The command runs the basic TCDM regression, generates and verifies a 320x200
-framebuffer image, checks an RGB565 SPI stream, and writes this preview:
+The command runs five tests: the basic TCDM regression, a generated 320x200
+framebuffer image, the ST7789VI reset/initialization sequence, a full-size
+RGB565 3-wire SPI stream, and a focused integration test through
+`display_subsystem_core`. The integration test writes the palette and
+framebuffer through TCDM, starts the frame through the control register,
+verifies every 9-bit SPI word, and reads back status and the frame counter. It
+also writes this preview:
 
 ```text
 build\display-tests\image\display_framebuffer_test.png
@@ -72,9 +77,31 @@ primitives.
 
 ## Current limitations
 
-- The SPI streamer sends already-prepared RGB565 pixel words in SPI mode 0.
-- LCD reset, command/data control, initialization commands, and address-window
-  setup remain board/display-specific RTL.
+- `display_subsystem` is connected in `soc_domain`, and its chip-select, clock
+  and SDA signals are exposed by `core_v_mcu`, along with LCD reset, IM0, and
+  IM2. A board wrapper and XDC file still need to assign them to FPGA pins.
+- The target is Newhaven `NHD-2.4-240320AF-CTXP`, driven by an ST7789VI. The
+  controller uses 3-wire, 9-bit SPI: each transfer contains a command/data bit
+  followed by one byte, so there is no separate D/C output.
+- `display_st7789_init` performs the panel reset, sends the 72-word Newhaven
+  initialization sequence, selects RGB565, and opens a 320x240 landscape
+  address window. IM0 and IM2 are driven high to select 3-wire SPI.
+- With a 50 MHz SoC clock and `SPI_CLK_DIV=2`, SCLK is 12.5 MHz. A 320x200
+  RGB565 frame takes at least about 92 ms on the wire; RTL overhead makes the
+  current practical ceiling roughly 9--10 frames/s.
+- Doom produces 320x200 pixels while the LCD is 320x240. The current streamer
+  updates the first 200 rows; software or a later controller revision must
+  deliberately clear/pad the remaining 40 rows.
+- The framebuffer is single-buffered. Writing it while SPI scanout is active
+  can tear; software can wait for `DONE`, or a later revision can add a second
+  framebuffer and swap them at frame boundaries.
+- On the physical module, connect `spi_mosi_o` to SDA, `spi_sclk_o` to SCL,
+  `spi_cs_no` to CSX, and `display_reset_no` to RESX. Tie unused WRX, RDX, and
+  DB pins low as recommended for serial mode; SDO may remain open when reads
+  are unused. The 3.1 V, 80 mA backlight needs the board's appropriate power
+  circuitry rather than an ordinary FPGA GPIO.
+- Panel orientation, mirroring, RGB/BGR order, pin assignments, and final SPI
+  rate still require confirmation on the actual hardware.
 - The full CORE-V simulation cannot currently compile locally because ModelSim
   is not installed. The Verilator `model-lib` target does build successfully.
 - A new CPU-executed display smoke-test program additionally needs a RISC-V

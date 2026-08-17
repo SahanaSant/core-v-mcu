@@ -27,23 +27,30 @@ module display_spi_streamer #(
     output logic spi_mosi_o
 );
 
-  localparam int unsigned DIV_WIDTH = (SPI_CLK_DIV <= 1) ? 1 : $clog2(SPI_CLK_DIV);
-
-  typedef enum logic [2:0] {
+  typedef enum logic [3:0] {
     IDLE,
     REQUEST_PIXEL,
     WAIT_PIXEL,
     WAIT_PALETTE,
-    LOAD_PIXEL,
-    SHIFT_PIXEL
+    LATCH_PIXEL,
+    SEND_MEMORY_WRITE,
+    WAIT_MEMORY_WRITE,
+    SEND_HIGH_BYTE,
+    WAIT_HIGH_BYTE,
+    SEND_LOW_BYTE,
+    WAIT_LOW_BYTE
   } state_e;
 
   state_e state_q;
 
   logic [PIXEL_ADDR_WIDTH-1:0] pixel_addr_q;
-  logic [15:0]                 shift_q;
-  logic [4:0]                  bit_count_q;
-  logic [DIV_WIDTH-1:0]        divider_q;
+  logic [15:0]                 pixel_color_q;
+  logic                        byte_start;
+  logic [7:0]                  byte_data;
+  logic                        byte_dc;
+  logic                        byte_keep_cs;
+  logic                        byte_ready;
+  logic                        byte_done;
 
   assign busy_o          = state_q != IDLE;
   assign pixel_req_o     = state_q == REQUEST_PIXEL;
@@ -51,31 +58,72 @@ module display_spi_streamer #(
   assign palette_req_o   = state_q == WAIT_PIXEL;
   assign palette_index_o = pixel_i;
 
+  always_comb begin
+    byte_start   = 1'b0;
+    byte_data    = '0;
+    byte_dc      = 1'b1;
+    byte_keep_cs = 1'b1;
+
+    unique case (state_q)
+      SEND_MEMORY_WRITE: begin
+        byte_start = byte_ready;
+        byte_data  = 8'h2C;
+        byte_dc    = 1'b0;
+      end
+      SEND_HIGH_BYTE: begin
+        byte_start = byte_ready;
+        byte_data  = pixel_color_q[15:8];
+      end
+      SEND_LOW_BYTE: begin
+        byte_start   = byte_ready;
+        byte_data    = pixel_color_q[7:0];
+        byte_keep_cs = pixel_addr_q != FRAME_PIXELS - 1;
+      end
+      default: begin
+      end
+    endcase
+  end
+
+  display_spi_byte_tx #(
+      .SPI_CLK_DIV(SPI_CLK_DIV)
+  ) i_display_spi_byte_tx (
+      .clk_i,
+      .rst_ni,
+      .start_i  (byte_start),
+      .data_i   (byte_data),
+      .dc_i     (byte_dc),
+      .keep_cs_i(byte_keep_cs),
+      .ready_o  (byte_ready),
+      .busy_o   (),
+      .done_o   (byte_done),
+      .spi_cs_no,
+      .spi_sclk_o,
+      .spi_mosi_o
+  );
+
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
-      state_q      <= IDLE;
-      pixel_addr_q <= '0;
-      shift_q      <= '0;
-      bit_count_q  <= '0;
-      divider_q    <= '0;
-      done_o       <= 1'b0;
-      spi_cs_no    <= 1'b1;
-      spi_sclk_o   <= 1'b0;
-      spi_mosi_o   <= 1'b0;
+      state_q       <= IDLE;
+      pixel_addr_q  <= '0;
+      pixel_color_q <= '0;
+      done_o        <= 1'b0;
     end else begin
       done_o <= 1'b0;
 
       unique case (state_q)
         IDLE: begin
-          spi_cs_no  <= 1'b1;
-          spi_sclk_o <= 1'b0;
-          divider_q  <= '0;
-
           if (frame_start_i && display_enable_i) begin
             pixel_addr_q <= '0;
-            spi_cs_no    <= 1'b0;
-            state_q      <= REQUEST_PIXEL;
+            state_q      <= SEND_MEMORY_WRITE;
           end
+        end
+
+        SEND_MEMORY_WRITE: begin
+          if (byte_ready) state_q <= WAIT_MEMORY_WRITE;
+        end
+
+        WAIT_MEMORY_WRITE: begin
+          if (byte_done) state_q <= REQUEST_PIXEL;
         end
 
         REQUEST_PIXEL: begin
@@ -87,45 +135,35 @@ module display_spi_streamer #(
         end
 
         WAIT_PALETTE: begin
-          state_q <= LOAD_PIXEL;
+          state_q <= LATCH_PIXEL;
         end
 
-        LOAD_PIXEL: begin
-          shift_q     <= palette_color_i;
-          bit_count_q <= 5'd15;
-          divider_q   <= '0;
-          spi_mosi_o  <= palette_color_i[15];
-          state_q     <= SHIFT_PIXEL;
+        LATCH_PIXEL: begin
+          pixel_color_q <= palette_color_i;
+          state_q       <= SEND_HIGH_BYTE;
         end
 
-        SHIFT_PIXEL: begin
-          if (divider_q == SPI_CLK_DIV - 1) begin
-            divider_q <= '0;
+        SEND_HIGH_BYTE: begin
+          if (byte_ready) state_q <= WAIT_HIGH_BYTE;
+        end
 
-            if (!spi_sclk_o) begin
-              // SPI mode 0: the receiver samples MOSI on this rising edge.
-              spi_sclk_o <= 1'b1;
+        WAIT_HIGH_BYTE: begin
+          if (byte_done) state_q <= SEND_LOW_BYTE;
+        end
+
+        SEND_LOW_BYTE: begin
+          if (byte_ready) state_q <= WAIT_LOW_BYTE;
+        end
+
+        WAIT_LOW_BYTE: begin
+          if (byte_done) begin
+            if (pixel_addr_q == FRAME_PIXELS - 1) begin
+              done_o  <= 1'b1;
+              state_q <= IDLE;
             end else begin
-              // Change MOSI only on falling edges.
-              spi_sclk_o <= 1'b0;
-
-              if (bit_count_q == 0) begin
-                if (pixel_addr_q == FRAME_PIXELS - 1) begin
-                  spi_cs_no <= 1'b1;
-                  done_o    <= 1'b1;
-                  state_q   <= IDLE;
-                end else begin
-                  pixel_addr_q <= pixel_addr_q + 1'b1;
-                  state_q      <= REQUEST_PIXEL;
-                end
-              end else begin
-                shift_q     <= {shift_q[14:0], 1'b0};
-                bit_count_q <= bit_count_q - 1'b1;
-                spi_mosi_o  <= shift_q[14];
-              end
+              pixel_addr_q <= pixel_addr_q + 1'b1;
+              state_q      <= REQUEST_PIXEL;
             end
-          end else begin
-            divider_q <= divider_q + 1'b1;
           end
         end
 

@@ -27,7 +27,13 @@ module core_v_mcu #(
     input  [`N_IO-1:0]                   io_in_i,
     output [`N_IO-1:0]                   io_out_o,
     output [`N_IO-1:0][`NBIT_PADCFG-1:0] pad_cfg_o,
-    output [`N_IO-1:0]                   io_oe_o
+    output [`N_IO-1:0]                   io_oe_o,
+    output logic                          display_spi_cs_no,
+    output logic                          display_spi_sclk_o,
+    output logic                          display_spi_mosi_o,
+    output logic                          display_reset_no,
+    output logic                          display_im0_o,
+    output logic                          display_im2_o
 );
 
   localparam AXI_ADDR_WIDTH = 32;
@@ -201,6 +207,12 @@ module core_v_mcu #(
       .jtag_tms_i  (jtag_tms_i),
       .jtag_tdi_i  (jtag_tdi_i),
       .jtag_tdo_o  (jtag_tdo_o),
+      .display_spi_cs_no  (display_spi_cs_no),
+      .display_spi_sclk_o (display_spi_sclk_o),
+      .display_spi_mosi_o (display_spi_mosi_o),
+      .display_reset_no   (display_reset_no),
+      .display_im0_o      (display_im0_o),
+      .display_im2_o      (display_im2_o),
       // Pad control signals
       .pad_cfg_o   (pad_cfg_o),
       .pad_mux_o   (s_pad_mux_soc),
