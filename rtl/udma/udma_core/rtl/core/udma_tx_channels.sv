@@ -150,7 +150,11 @@ module udma_tx_channels
     assign s_l2_addr_na = s_fifo_l2_addr[L2_AWIDTH_NOAL-1:ALIGN_BITS] + 1; //ask for following word
 
     assign s_req[N_LIN_CHANNELS-1:0] = lin_req_i & s_ch_en;
-    assign s_req[N_CHANNELS_TX-1:N_LIN_CHANNELS] = ext_req_i;
+    // Zero-width when N_EXT_CHANNELS is 0 (N_FILTER cut): skip the ext slice.
+    if (N_EXT_CHANNELS > 0) begin : gen_ext_1
+      assign s_req[N_CHANNELS_TX-1:N_LIN_CHANNELS] = ext_req_i;
+    end else begin : gen_no_ext_1
+    end
 
     assign s_gnt = s_sample_indata ? s_grant : 'h0;
 
@@ -159,7 +163,12 @@ module udma_tx_channels
     assign l2_req_o = s_l2_req & ~s_stall;
 
     assign lin_gnt_o = s_gnt[N_LIN_CHANNELS-1:0];
-    assign ext_gnt_o = s_gnt[N_CHANNELS_TX-1:N_LIN_CHANNELS];
+    // Zero-width when N_EXT_CHANNELS is 0 (N_FILTER cut): skip the ext slice.
+    if (N_EXT_CHANNELS > 0) begin : gen_ext_2
+      assign ext_gnt_o = s_gnt[N_CHANNELS_TX-1:N_LIN_CHANNELS];
+    end else begin : gen_no_ext_2
+      assign ext_gnt_o = '0;
+    end
 
     always_comb 
     begin
@@ -328,7 +337,11 @@ module udma_tx_channels
     end
       
     assign s_ch_ready[N_LIN_CHANNELS-1:0] = lin_ready_i;
-    assign s_ch_ready[N_CHANNELS_TX-1:N_LIN_CHANNELS] = ext_ready_i;
+    // Zero-width when N_EXT_CHANNELS is 0 (N_FILTER cut): skip the ext slice.
+    if (N_EXT_CHANNELS > 0) begin : gen_ext_3
+      assign s_ch_ready[N_CHANNELS_TX-1:N_LIN_CHANNELS] = ext_ready_i;
+    end else begin : gen_no_ext_3
+    end
 
     //this may happen only in burst mode when multiple reads are pipelined
     assign s_stall = |(~s_ch_ready & r_resp) & r_valid;    

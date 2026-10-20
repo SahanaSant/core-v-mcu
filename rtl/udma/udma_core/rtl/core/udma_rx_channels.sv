@@ -210,7 +210,11 @@ module udma_rx_channels
     assign s_l2_bytes       = s_fifoout[INTFIFO_L2_SIZE-1:INTFIFO_L2_SIZE-CURR_BYTES_BITS];
 
     assign s_req[N_LIN_CHANNELS-1:0]             = lin_ch_valid_i & s_ch_en;
-    assign s_req[N_CHANNELS_RX-1:N_LIN_CHANNELS] = ext_ch_valid_i;
+    // Zero-width when N_EXT_CHANNELS is 0 (N_FILTER cut): skip the ext slice.
+    if (N_EXT_CHANNELS > 0) begin : gen_ext_1
+      assign s_req[N_CHANNELS_RX-1:N_LIN_CHANNELS] = ext_ch_valid_i;
+    end else begin : gen_no_ext_1
+    end
 
     assign l2_be_o   = s_l2_be;
 

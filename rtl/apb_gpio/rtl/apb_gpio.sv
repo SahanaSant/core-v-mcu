@@ -55,6 +55,8 @@ module apb_gpiov2 #(
 );
 
   localparam NG_BITS = `LOG2(128) - 1;
+  // Width of the 32-bit OUT0/PIN0 register view; less than 32 when N_GPIO is shrunk.
+  localparam int REG_W = (`N_GPIO > 32) ? 32 : `N_GPIO;
 
   logic [  NG_BITS:0]      r_gpio_select;
 
@@ -140,8 +142,8 @@ module apb_gpiov2 #(
                 r_gpio_select <= PWDATA[NG_BITS:0];
               end
               `REG_OUT0: begin
-                if (`N_GPIO > 32) r_gpio_out[31:0] <= PWDATA[31:0];
-                else r_gpio_out[`N_GPIO-1:0] <= PWDATA[`N_GPIO-1:0];
+                r_gpio_out[REG_W-1:0] <= PWDATA[REG_W-1:0];
+                // (was: N_GPIO > 32 ? [31:0] : [N_GPIO-1:0])
               end
               `REG_INTACK: begin
                 s_block_int[PWDATA[7:0]] <= 0;
@@ -164,10 +166,10 @@ module apb_gpiov2 #(
                 PRDATA[NG_BITS:0] <= r_gpio_select;
               end
               `REG_OUT0: begin
-                PRDATA[31:0] <= r_gpio_out[31:0];
+                PRDATA[REG_W-1:0] <= r_gpio_out[REG_W-1:0];
               end
               `REG_PIN0: begin
-                PRDATA[31:0] <= r_gpio_in[31:0];
+                PRDATA[REG_W-1:0] <= r_gpio_in[REG_W-1:0];
               end
            endcase  // case (PADDR[11:0]])
           end

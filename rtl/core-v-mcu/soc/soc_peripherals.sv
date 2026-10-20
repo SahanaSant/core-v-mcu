@@ -114,6 +114,7 @@ module soc_peripherals #(
   APB_BUS s_apb_i2cs_bus ();
 
   logic [            `N_GPIO-1:0]                            s_gpio_sync;
+  logic [                    3:0][                    3:0] s_timer_ch;  // adv_timer ch0..ch3, 4 bits each
   logic [            `N_GPIO-1:0]                            s_gpio_events;
   logic [                    1:0]                            s_spim_event;
   logic                                                      s_uart_event;
@@ -497,19 +498,24 @@ module soc_peripherals #(
       .PSLVERR(s_adv_timer_bus.pslverr),
 
       .low_speed_clk_i(s_ref_clk),
-      .ext_sig_i      (s_gpio_sync),
+      // Timer expects 32 external signals; zero-pad when N_GPIO is shrunk below 32.
+      .ext_sig_i      ({{(32 - `N_GPIO) {1'b0}}, s_gpio_sync}),
 
       .events_o(s_adv_timer_events),
 
-      .ch_0_o(apbio_out_o[`N_GPIO+3:`N_GPIO]),  // (timer_ch0_o),
-      .ch_1_o(apbio_out_o[`N_GPIO+7:`N_GPIO+4]),  // (timer_ch1_o),
-      .ch_2_o(apbio_out_o[`N_GPIO+11:`N_GPIO+8]),  // (timer_ch2_o),
-      .ch_3_o(apbio_out_o[`N_GPIO+15:`N_GPIO+12])  // (timer_ch3_o)
+      .ch_0_o(s_timer_ch[0]),  // (timer_ch0_o),
+      .ch_1_o(s_timer_ch[1]),  // (timer_ch1_o),
+      .ch_2_o(s_timer_ch[2]),  // (timer_ch2_o),
+      .ch_3_o(s_timer_ch[3])  // (timer_ch3_o)
   );
-  assign apbio_oe_o[`N_GPIO+3:`N_GPIO] = 4'b1111;  // timer_ch0 oe
-  assign apbio_oe_o[`N_GPIO+7:`N_GPIO+4] = 4'b1111;  // timer_ch1 oe
-  assign apbio_oe_o[`N_GPIO+11:`N_GPIO+8] = 4'b1111;  // timer_ch2 oe
-  assign apbio_oe_o[`N_GPIO+15:`N_GPIO+12] = 4'b1111;  // timer_ch3 oe
+  // Bond as many PWM outputs as fit after the GPIOs in the apbio bus
+  // (N_APBIO = N_GPIO + 8 bonds ch0/ch1 only, "8 of 16 channels bonded").
+  // Unbonded channels still exist inside the timer but drive no pad.
+  localparam int N_PWM_BONDED = (`N_APBIO - `N_GPIO > 16) ? 16 : (`N_APBIO - `N_GPIO);
+  for (genvar k = 0; k < N_PWM_BONDED; k++) begin : gen_pwm_bond
+    assign apbio_out_o[`N_GPIO+k] = s_timer_ch[k/4][k%4];
+    assign apbio_oe_o[`N_GPIO+k]  = 1'b1;
+  end
 
   /////////////////////////////////////////////////////////////////////////////////
   // ███████╗██╗   ██╗███████╗███╗   ██╗████████╗     ██████╗ ███████╗███╗   ██╗ //
@@ -651,6 +657,10 @@ module soc_peripherals #(
   // ╚═╝  ╚═╝╚═╝     ╚═════╝                                   //
   ///////////////////////////////////////////////////////////////
 
+  logic s_i2cs_sda_out, s_i2cs_sda_oe, s_i2cs_irq_out;
+  wire s_i2cs_scl_in = 1'b1;
+  wire s_i2cs_sda_in = 1'b1;
+
   apb_i2cs #(
       .APB_ADDR_WIDTH(APB_ADDR_WIDTH)
   ) i_apb_i2cs (
@@ -664,14 +674,15 @@ module soc_peripherals #(
       .apb_prdata_o (s_apb_i2cs_bus.prdata),
       .apb_pready_o (s_apb_i2cs_bus.pready),
       .apb_interrupt_o(s_i2cs_event),
-      .i2c_scl_i(apbio_in_i[`N_GPIO+16]),
-      .i2c_sda_i(apbio_in_i[`N_GPIO+17]),
-      .i2c_sda_o(apbio_out_o[`N_GPIO+17]),
-      .i2c_sda_oe(apbio_oe_o[`N_GPIO+17]),
-      .i2c_interrupt_o(apbio_out_o[`N_GPIO+18])
+      .i2c_scl_i(s_i2cs_scl_in),
+      .i2c_sda_i(s_i2cs_sda_in),
+      .i2c_sda_o(s_i2cs_sda_out),
+      .i2c_sda_oe(s_i2cs_sda_oe),
+      .i2c_interrupt_o(s_i2cs_irq_out)
   );
-  assign apbio_oe_o[`N_GPIO+16]  = 1'b0;  // scl is input only for i2c slave
-  assign apbio_out_o[`N_GPIO+16] = 1'b0;
-  assign apbio_oe_o[`N_GPIO+18]  = 1'b1;
+  // apb_i2cs has no pads in this configuration (N_APBIO = N_GPIO + 8, see
+  // pulp_soc_defines.svh). Its APB registers stay so software accesses do not
+  // fault, but its pins are tied off: bus idle-high in, outputs unconnected.
+  // The old wiring used apbio[N_GPIO+16..18], which is past the end of the bus.
 
 endmodule
