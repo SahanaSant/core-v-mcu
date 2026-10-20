@@ -21,9 +21,17 @@ module l2_ram_multi_bank #(
           XBAR_TCDM_BUS.Slave mem_pri_slave[       2]
 );
   // Don't forget to adjust the SRAM macros and the FPGA settings if you change the banksizes
+`ifdef BASYS3_SMALL_L2
+  // Basys 3 (xc7a35t) fit check only: 4 KiB per bank, 24 KiB total, so L2
+  // fits the board's block RAM. Must match INTERLEAVED/PRIVATE_BANK_SIZE (1024).
+  localparam int unsigned BANK_SIZE_INTL_SRAM = 1024;  //Number of 32-bit words
+  localparam int unsigned BANK_SIZE_PRI0 = 1024;  //Number of 32-bit words
+  localparam int unsigned BANK_SIZE_PRI1 = 1024;  //Number of 32-bit words
+`else
   localparam int unsigned BANK_SIZE_INTL_SRAM = 32768;  //Number of 32-bit words
   localparam int unsigned BANK_SIZE_PRI0 = 8192;  //Number of 32-bit words
   localparam int unsigned BANK_SIZE_PRI1 = 8192;  //Number of 32-bit words
+`endif
 
   //Derived parameters
   localparam int unsigned INTL_MEM_ADDR_WIDTH = $clog2(BANK_SIZE_INTL_SRAM);

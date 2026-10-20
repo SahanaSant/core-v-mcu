@@ -166,6 +166,15 @@ filesets:
     files:
     - emulation/core-v-mcu-nexys/constraints/core-v-mcu-pin-assignment.xdc
     file_type: xdc
+  basys3-rtl:
+    files:
+    - emulation/core-v-mcu-basys3/rtl/core_v_mcu_basys3.v
+    - emulation/xilinx/rtl/fpga_clk_gen.sv
+    file_type: systemVerilogSource
+  basys3-xdc:
+    files:
+    - emulation/core-v-mcu-basys3/constraints/core-v-mcu-pin-assignment.xdc
+    file_type: xdc
   xilinx-tcl:
     files:
     - emulation/xilinx/tcl/common.tcl
@@ -319,6 +328,24 @@ targets:
       vivado:
         part: xc7a100tcsg324-1
     toplevel: core_v_mcu_nexys
+  basys3:
+    <<: *default_target
+    default_tool: vivado
+    description: Digilent Basys 3 (xc7a35t) fit check
+    parameters:
+    - PULP_FPGA_EMUL=true
+    filesets_append:
+    - nexys-ips
+    - xilinx-ips
+    - xilinx-tcl
+    - emulation-rtl
+    - basys3-rtl
+    - basys3-xdc
+    - rom_init
+    tools:
+      vivado:
+        part: xc7a35tcpg236-1
+    toplevel: core_v_mcu_basys3
   genesys2:
     <<: *default_target
     default_tool: vivado
