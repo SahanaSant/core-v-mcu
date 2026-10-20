@@ -50,6 +50,11 @@ set_property top core_v_mcu_basys3 [current_fileset]
 # Shrink L2 in the RTL to match the 1024-word RAM IP (see l2_ram_multi_bank.sv).
 set_property verilog_define {FPGA=true PULP_FPGA_EMUL=1 BASYS3_SMALL_L2=1} [get_filesets sources_1]
 
+# Area-focused synthesis. flatten.tcl sets FLATTEN_HIERARCHY none, which
+# blocks optimization across module boundaries; rebuilt allows it.
+set_property strategy Flow_AreaOptimized_high [get_runs synth_1]
+set_property STEPS.SYNTH_DESIGN.ARGS.FLATTEN_HIERARCHY rebuilt [get_runs synth_1]
+reset_run synth_1
 launch_runs synth_1 -jobs 8
 puts "fit_check: synthesis launched for top [get_property top [current_fileset]]"
 
