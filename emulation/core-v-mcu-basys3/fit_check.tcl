@@ -33,6 +33,11 @@ foreach d [glob -nocomplain openhwgroup.org_systems_core-v-mcu_0.{srcs,gen,runs,
     file delete -force $d
 }
 
+# Boot ROM: use the minimal UART "hello" image (hello_rom/) instead of the
+# stock a2_boot image, which prints on the cut UART1 and uses pre-cut
+# uDMA addresses. Rebuild it from hello_rom/hello.S if you change it.
+file copy -force "$script_dir/hello_rom/boot.mem" V:/mem_init/boot.mem
+
 # Recreate the project from FuseSoC's script.
 source openhwgroup.org_systems_core-v-mcu_0.tcl
 
